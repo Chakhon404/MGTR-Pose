@@ -5,6 +5,6 @@ __pycache__/
 # Model Weights
 *.pt
 
-# Media Inputs & Outputs
-data/inputs/
-data/outputs/
+#.mp4 and .npz
+*.mp4
+*.npz
