@@ -1,0 +1,46 @@
+import os
+import cv2
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DEFAULT_MODEL = "yolov8n-pose.pt"
+DEFAULT_VIDEO = "Idle.mp4"
+DEFAULT_CONF = 0.25
+DEFAULT_DEVICE = "cpu"
+
+MODEL_DIR = os.path.join(PROJECT_ROOT, "models")
+DATA_INPUTS_DIR = os.path.join(PROJECT_ROOT, "data", "inputs")
+DATA_OUTPUTS_DIR = os.path.join(PROJECT_ROOT, "data", "outputs")
+OUTPUT_NPZ_DIR = os.path.join(DATA_OUTPUTS_DIR, "output_npz")
+
+FLOW_SCALE = 0.25
+SPARSE_FLOW_WINSIZE = (15, 15)
+SPARSE_FLOW_MAXLEVEL = 2
+SPARSE_FLOW_CRITERIA = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
+DENSE_FLOW_PYR_SCALE = 0.5
+DENSE_FLOW_LEVELS = 3
+DENSE_FLOW_WINSIZE = 15
+DENSE_FLOW_ITERATIONS = 3
+DENSE_FLOW_POLY_N = 5
+DENSE_FLOW_POLY_SIGMA = 1.2
+
+MOTION_THRESH_IDLE = 3.0
+MOTION_THRESH_ACTIVE = 10.0
+MAX_SKIP_IDLE = 6
+MAX_SKIP_ACTIVE = 2
+
+SKELETON = [
+    (0, 1), (0, 2), (1, 3), (2, 4),
+    (5, 7), (7, 9), (6, 8), (8, 10),
+    (5, 6), (5, 11), (6, 12), (11, 12),
+    (11, 13), (13, 15), (12, 14), (14, 16)
+]
+
+NUM_KEYPOINTS = 17
+KEYPOINT_DIMS = 2
+DEFAULT_MOTION_SCORE = 999.0
+
+MULTI_STREAM_IDLE_SKIP = 6
+MULTI_STREAM_ACTIVE_SKIP = 2
+MULTI_STREAM_MOTION_THR = 1.0
+MULTI_STREAM_DEFAULT_VIDEOS = ["Idle.mp4", "Jumping_Jack.mp4", "Idle+jumpimg_jack.mp4"]
