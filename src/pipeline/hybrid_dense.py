@@ -63,8 +63,7 @@ class HybridDenseFlowPipeline(BasePipeline):
                 self.current_kpts = self.prev_kpts_px.copy()
         else:
             self.skip_count += 1
-            self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)
-            self.current_kpts = self.prev_kpts_px.copy()
+            self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
         
         if self.prev_kpts_px is None:
             self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)

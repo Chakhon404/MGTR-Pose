@@ -3,16 +3,35 @@ import numpy as np
 import time
 from ..core.yolo_wrapper import YOLOWrapper
 from ..utils.visualization import draw_skeleton, add_info_text
-from ..config import DEFAULT_MODEL, DEFAULT_CONF
+from ..utils.video_utils import resolve_model_path
+from ..config import DEFAULT_MODEL, DEFAULT_CONF, PROJECT_ROOT
 
 
 class PureYOLOLive:
     def __init__(self, model_path=DEFAULT_MODEL, conf=DEFAULT_CONF, device="cpu", camera_id=1):
+        model_path = resolve_model_path(model_path, PROJECT_ROOT)
         self.model = YOLOWrapper(model_path, conf, device)
         self.cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             raise RuntimeError("Cannot open camera")
         self.fps_ema = 0.0
+    
+    def _extract_keypoints(self, result):
+        if result is None:
+            return np.full((17, 2), np.nan, dtype=np.float32)
+        if hasattr(result, '_keypoints'):
+            return result._keypoints.copy().astype(np.float32)
+        if result.keypoints is not None and len(result.keypoints) > 0:
+            if result.boxes is not None and len(result.boxes) > 0:
+                boxes = result.boxes.xyxy.cpu().numpy()
+                areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+                idx = np.argmax(areas)
+            else:
+                idx = 0
+            kpts = result.keypoints.xy[idx].cpu().numpy().astype(np.float32)
+            kpts[np.all(kpts == 0, axis=1)] = np.nan
+            return kpts
+        return np.full((17, 2), np.nan, dtype=np.float32)
     
     def run(self):
         print("[INFO] Running PURE YOLO Live")
@@ -21,9 +40,8 @@ class PureYOLOLive:
             if not ret:
                 break
             t_start = time.time()
-            kpts = self.model.predict(frame)
-            if kpts is None:
-                kpts = np.full((17, 2), np.nan)
+            result = self.model.predict(frame)
+            kpts = self._extract_keypoints(result)
             t_process = time.time() - t_start
             curr_fps = 1.0 / t_process if t_process > 0 else 0
             self.fps_ema = 0.9 * self.fps_ema + 0.1 * curr_fps

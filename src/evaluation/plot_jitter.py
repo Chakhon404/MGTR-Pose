@@ -15,7 +15,12 @@ def calculate_normalized_jitter(kpts, width, height):
 
 def analyze_jitter_file(npz_path):
     data = np.load(npz_path)
-    kpts = data['keypoints_2d'].reshape(-1, 17, 2)
+    if 'keypoints_2d' in data:
+        kpts = data['keypoints_2d'].reshape(-1, 17, 2)
+    elif 'kpts' in data:
+        kpts = data['kpts'].reshape(-1, 17, 2)
+    else:
+        raise KeyError(f"Unknown keys in NPZ: {list(data.keys())}. Expected 'keypoints_2d' or 'kpts'.")
     width = data.get('width', 1000)
     height = data.get('height', 1000)
     jitter = calculate_normalized_jitter(kpts, width, height)

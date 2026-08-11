@@ -71,8 +71,16 @@ class HybridSparseFlowPipeline(BasePipeline):
                 self.current_kpts = self.prev_kpts_px.copy()
         else:
             self.skip_count += 1
-            self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)
-            self.current_kpts = self.prev_kpts_px.copy()
+            if curr_kpts_small is not None:
+                self.prev_kpts_small = curr_kpts_small
+                tracked_px = (curr_kpts_small.reshape(-1, 2) / self.flow_scale).astype(np.float32)
+                if tracked_px.shape[0] == 17:
+                    self.prev_kpts_px = tracked_px
+                    self.current_kpts = tracked_px.copy()
+                else:
+                    self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
+            else:
+                self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
         
         if self.prev_kpts_px is None:
             self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)

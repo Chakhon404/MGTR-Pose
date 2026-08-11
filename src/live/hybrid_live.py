@@ -5,12 +5,14 @@ from ..core.yolo_wrapper import YOLOWrapper
 from ..core.optical_flow import SparseOpticalFlowTracker
 from ..utils.visualization import draw_skeleton, add_info_text
 from ..utils.math_utils import interpolate_keypoints_linear
-from ..config import DEFAULT_MODEL, DEFAULT_CONF, FLOW_SCALE, MOTION_THRESH_IDLE, MAX_SKIP_IDLE, MAX_SKIP_ACTIVE
+from ..utils.video_utils import resolve_model_path
+from ..config import DEFAULT_MODEL, DEFAULT_CONF, FLOW_SCALE, MOTION_THRESH_IDLE, MAX_SKIP_IDLE, MAX_SKIP_ACTIVE, PROJECT_ROOT
 
 
 class HybridLiveBuffer:
     def __init__(self, model_path=DEFAULT_MODEL, conf=DEFAULT_CONF, device="cpu", camera_id=1,
                  flow_scale=FLOW_SCALE, motion_thr=MOTION_THRESH_IDLE, idle_skip=MAX_SKIP_IDLE, active_skip=MAX_SKIP_ACTIVE):
+        model_path = resolve_model_path(model_path, PROJECT_ROOT)
         self.model = YOLOWrapper(model_path, conf, device)
         self.flow_tracker = SparseOpticalFlowTracker(flow_scale)
         self.cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW)
@@ -28,6 +30,23 @@ class HybridLiveBuffer:
         self.total_compute_time = 0.0
         self.fps_ema = 0.0
         self.is_first_fps = True
+    
+    def _extract_keypoints(self, result):
+        if result is None:
+            return np.full((17, 2), np.nan, dtype=np.float32)
+        if hasattr(result, '_keypoints'):
+            return result._keypoints.copy().astype(np.float32)
+        if result.keypoints is not None and len(result.keypoints) > 0:
+            if result.boxes is not None and len(result.boxes) > 0:
+                boxes = result.boxes.xyxy.cpu().numpy()
+                areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+                idx = np.argmax(areas)
+            else:
+                idx = 0
+            kpts = result.keypoints.xy[idx].cpu().numpy().astype(np.float32)
+            kpts[np.all(kpts == 0, axis=1)] = np.nan
+            return kpts
+        return np.full((17, 2), np.nan, dtype=np.float32)
     
     def run(self):
         print("[INFO] Running Hybrid Live Buffer")
@@ -54,10 +73,9 @@ class HybridLiveBuffer:
                 self.prev_gray_small = curr_gray_small
                 continue
             t0_yolo = time.time()
-            curr_kpts_px = self.model.predict(frame)
-            if curr_kpts_px is None:
-                curr_kpts_px = np.full((17, 2), np.nan)
-            if curr_kpts_px is not None and not np.isnan(curr_kpts_px).all():
+            result = self.model.predict(frame)
+            curr_kpts_px = self._extract_keypoints(result)
+            if not np.isnan(curr_kpts_px).all():
                 valid_mask = ~np.isnan(curr_kpts_px).any(axis=1)
                 valid_pts = curr_kpts_px[valid_mask]
                 if len(valid_pts) > 0:
@@ -91,7 +109,7 @@ class HybridLiveBuffer:
                     self.cap.release()
                     cv2.destroyAllWindows()
                     return
-            self.prev_kpts_px = curr_kpts_px.copy() if curr_kpts_px is not None else None
+            self.prev_kpts_px = curr_kpts_px.copy()
             self.prev_gray_small = curr_gray_small
             self.buffer.clear()
             self.skip_count = 0

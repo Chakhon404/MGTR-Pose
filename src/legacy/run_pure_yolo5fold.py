@@ -2,6 +2,7 @@ import os
 import argparse
 from ..pipeline.pure_yolo import PureYOLOPipeline
 from ..utils.video_utils import resolve_video_path, resolve_model_path
+from ..config import PROJECT_ROOT
 
 
 def run_5fold_eval(video_paths, model_path, conf, device, output_dir):
@@ -26,7 +27,7 @@ def main():
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root = PROJECT_ROOT
     video_paths = [resolve_video_path(v, project_root) for v in args.videos]
     model_path = resolve_model_path(args.model, project_root)
     results = run_5fold_eval(video_paths, model_path, args.conf, args.device, args.output)

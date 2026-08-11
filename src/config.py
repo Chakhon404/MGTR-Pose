@@ -43,4 +43,4 @@ DEFAULT_MOTION_SCORE = 999.0
 MULTI_STREAM_IDLE_SKIP = 6
 MULTI_STREAM_ACTIVE_SKIP = 2
 MULTI_STREAM_MOTION_THR = 1.0
-MULTI_STREAM_DEFAULT_VIDEOS = ["Idle.mp4", "Jumping_Jack.mp4", "Idle+jumpimg_jack.mp4"]
+MULTI_STREAM_DEFAULT_VIDEOS = ["Idle.mp4", "jumping_jack.mp4", "Idle+jumpimg_jack.mp4"]
