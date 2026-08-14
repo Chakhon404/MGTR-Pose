@@ -124,12 +124,23 @@ def main():
             
         df = pd.DataFrame(results)
         
-        # Group by configuration
+        import re
+        def extract_sort_key(s):
+            # Extract first number from the string (e.g. 'thr10.0_v8n' -> 10.0)
+            nums = re.findall(r'\d+\.\d+|\d+', s)
+            if nums:
+                return float(nums[0])
+            return 0.0
+            
         summary_df = df.groupby('Configuration').agg({
             'FPS': 'mean',
             'MPJPE': 'mean',
             'Jitter': 'mean'
         }).reset_index()
+        
+        # Sort properly based on the numeric value inside the configuration name
+        summary_df['SortKey'] = summary_df['Configuration'].apply(extract_sort_key)
+        summary_df = summary_df.sort_values('SortKey').drop(columns=['SortKey'])
         
         print(f"\nSummary for {abl}:")
         print(summary_df.to_string(index=False))
