@@ -7,8 +7,9 @@ from ..utils.math_utils import create_empty_keypoints
 
 class HybridDenseFlowPipeline(BasePipeline):
     def __init__(self, model_path, video_path, conf=0.25, device="cpu",
-                 flow_scale=0.25, motion_thr=0.9, max_skip=2):
+                 flow_scale=0.25, motion_thr=0.9, max_skip=2, no_interp=False):
         super().__init__(model_path, video_path, conf, device)
+        self.no_interp = no_interp
         self.flow_scale = flow_scale
         self.motion_thr = motion_thr
         self.max_skip = max_skip

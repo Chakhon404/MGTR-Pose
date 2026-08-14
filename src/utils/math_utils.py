@@ -14,6 +14,23 @@ def interpolate_nans_inplace(x):
                 x[:, j, d] = s
 
 
+def forward_fill_nans(x):
+    """Replace NaN values by copying the last valid value forward (zero-order hold).
+    This is the 'no refinement' baseline for Ablation Study."""
+    T, J, D = x.shape
+    for j in range(J):
+        for d in range(D):
+            s = x[:, j, d]
+            mask = np.isnan(s)
+            if mask.any() and (~mask).any():
+                last_valid = np.nan
+                for t in range(T):
+                    if not np.isnan(s[t]):
+                        last_valid = s[t]
+                    elif not np.isnan(last_valid):
+                        s[t] = last_valid
+                x[:, j, d] = s
+
 def interpolate_keypoints_linear(prev_kpts, curr_kpts, ratio):
     interp_kpts = np.full((17, 2), np.nan)
     for j in range(17):

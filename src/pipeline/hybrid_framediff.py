@@ -1,11 +1,10 @@
 import cv2
 import numpy as np
 from .base import BasePipeline
-from ..core.optical_flow import SparseOpticalFlowTracker
 from ..utils.math_utils import create_empty_keypoints
 
 
-class HybridSparseFlowPipeline(BasePipeline):
+class HybridFrameDiffPipeline(BasePipeline):
     def __init__(self, model_path, video_path, conf=0.25, device="cpu",
                  flow_scale=0.25, motion_thr=3.0, max_skip=6, no_interp=False):
         super().__init__(model_path, video_path, conf, device)
@@ -13,16 +12,11 @@ class HybridSparseFlowPipeline(BasePipeline):
         self.flow_scale = flow_scale
         self.motion_thr = motion_thr
         self.max_skip = max_skip
-        self.flow_tracker = SparseOpticalFlowTracker(flow_scale)
-        
         self.prev_gray_small = None
         self.prev_kpts_px = None
-        self.prev_kpts_small = None
         self.current_kpts = create_empty_keypoints()
-        
         self.skip_count = 0
         self.motion_score = 0.0
-        
         self.is_pure_mode = (max_skip == 0)
     
     def _process_frame(self, frame, frame_idx):
@@ -36,14 +30,12 @@ class HybridSparseFlowPipeline(BasePipeline):
         run_yolo = True
         motion_score = 0.0
         
-        if not self.is_pure_mode and self.prev_gray_small is not None and self.prev_kpts_small is not None:
-            motion_score, curr_kpts_small = self.flow_tracker.compute(
-                self.prev_gray_small, curr_gray_small, self.prev_kpts_small
-            )
+        if not self.is_pure_mode and self.prev_gray_small is not None:
+            diff = cv2.absdiff(self.prev_gray_small, curr_gray_small)
+            motion_score = float(np.mean(diff))
             
-            if motion_score < self.motion_thr and self.skip_count < self.max_skip:
+            if motion_score < self.motion_thr and self.skip_count < self.max_skip and self.prev_kpts_px is not None:
                 run_yolo = False
-                self.prev_kpts_small = curr_kpts_small
             else:
                 run_yolo = True
         
@@ -61,27 +53,16 @@ class HybridSparseFlowPipeline(BasePipeline):
                         idx = 0
                     kpts = r.keypoints.xy[idx].cpu().numpy().astype(np.float32)
                     self.prev_kpts_px = kpts.copy()
-                    self.prev_kpts_small = (kpts * self.flow_scale).astype(np.float32).reshape(-1, 1, 2)
                     found = True
             
             if not found:
                 self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)
-                self.prev_kpts_small = None
                 self.current_kpts = self.prev_kpts_px.copy()
             else:
                 self.current_kpts = self.prev_kpts_px.copy()
         else:
             self.skip_count += 1
-            if curr_kpts_small is not None:
-                self.prev_kpts_small = curr_kpts_small
-                tracked_px = (curr_kpts_small.reshape(-1, 2) / self.flow_scale).astype(np.float32)
-                if tracked_px.shape[0] == 17:
-                    self.prev_kpts_px = tracked_px
-                    self.current_kpts = tracked_px.copy()
-                else:
-                    self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
-            else:
-                self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
+            self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
         
         if self.prev_kpts_px is None:
             self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)

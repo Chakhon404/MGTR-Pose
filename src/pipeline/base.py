@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from abc import ABC, abstractmethod
 
-from ..utils.math_utils import interpolate_nans_inplace, create_empty_keypoints
+from ..utils.math_utils import interpolate_nans_inplace, forward_fill_nans, create_empty_keypoints
 
 
 class BasePipeline(ABC):
@@ -25,6 +25,7 @@ class BasePipeline(ABC):
         self.processing_fps = 0
         self.elapsed_time = 0
         self.normalize_in_base = True
+        self.no_interp = False
     
     @abstractmethod
     def _process_frame(self, frame, frame_idx):
@@ -73,7 +74,10 @@ class BasePipeline(ABC):
     
     def get_results(self):
         K = np.stack(self.keypoints_all, axis=0).reshape(-1, 17, 2).astype("float32")
-        interpolate_nans_inplace(K)
+        if self.no_interp:
+            forward_fill_nans(K)
+        else:
+            interpolate_nans_inplace(K)
         return {
             "keypoints": K,
             "frame_names": self.frame_names,
