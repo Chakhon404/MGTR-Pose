@@ -23,7 +23,7 @@ class SparseOpticalFlowTracker:
         if len(good_new) == 0:
             return 100.0, None
         distances = np.linalg.norm(good_new - good_old, axis=1)
-        motion_score = np.mean(distances)
+        motion_score = np.max(distances)
         return motion_score, curr_pts
     
     def prepare_keypoints(self, kpts_px, scale=None):

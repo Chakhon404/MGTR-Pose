@@ -26,7 +26,7 @@ def main():
     parser.add_argument("--pipeline", type=str, default="sparse", choices=["pure", "sparse", "dense", "framediff"])
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--flow_scale", type=float, default=0.25)
-    parser.add_argument("--motion_thr", type=float, default=3.0)
+    parser.add_argument("--motion_thr", type=float, default=5.0)
     parser.add_argument("--max_skip", type=int, default=6)
     parser.add_argument("--no_interp", action="store_true", help="Disable Linear Interpolation (use forward-fill instead)")
     args = parser.parse_args()

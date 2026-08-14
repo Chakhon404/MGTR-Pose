@@ -26,8 +26,15 @@ def compute_mpjpe(pred_kpts, gt_kpts, pred_w, pred_h, gt_w, gt_h):
 def compute_jitter(pred_kpts, w, h):
     if pred_kpts.ndim == 2:
         pred_kpts = pred_kpts.reshape(pred_kpts.shape[0], -1, 2)
-    pred_norm = pred_kpts / np.array([w, h])
-    jitter = np.mean(np.linalg.norm(pred_norm[1:] - pred_norm[:-1], axis=-1))
+    # The keypoints from YOLO's .xyn are already normalized to [0, 1].
+    # DO NOT divide by w and h again.
+    pred_norm = pred_kpts 
+    if len(pred_norm) < 3:
+        return 0.0
+    # Calculate Mean Acceleration (Second Derivative)
+    accel = np.linalg.norm(pred_norm[2:] - 2*pred_norm[1:-1] + pred_norm[:-2], axis=-1)
+    # Handle NaNs that might exist if a person is completely lost
+    jitter = np.nanmean(accel)
     return jitter
 
 def load_kpts(npz_data):
@@ -68,7 +75,8 @@ def main():
                 data = np.load(npz_file)
                 kpts = load_kpts(data)
                 fps = float(data['processing_fps'])
-                w, h = float(data['width']), float(data['height'])
+                w = float(data['width']) if 'width' in data else 1920.0
+                h = float(data['height']) if 'height' in data else 1080.0
             except Exception as e:
                 print(f"Error loading {npz_file}: {e}")
                 continue
@@ -126,6 +134,18 @@ def main():
         
         import re
         def extract_sort_key(s):
+            if abl == 'abl6_model':
+                order = {
+                    'pure_v8n': 1, 'hybrid_v8n': 2,
+                    'pure_v8m': 3, 'hybrid_v8m': 4,
+                    'pure_v26n': 5, 'hybrid_v26n': 6,
+                    'pure_v26m': 7, 'hybrid_v26m': 8
+                }
+                for k, v in order.items():
+                    if k in s:
+                        return v
+                return 99
+                
             # Extract first number from the string (e.g. 'thr10.0_v8n' -> 10.0)
             nums = re.findall(r'\d+\.\d+|\d+', s)
             if nums:
@@ -160,28 +180,70 @@ def main():
             'abl6_model': 'Ablation 6: Model Backbone Comparison'
         }
         main_title = ablation_titles.get(abl, f'{abl} Results')
-        fig.suptitle(main_title, fontsize=16, fontweight='bold')
+        try:
+            plt.style.use('seaborn-v0_8-muted')
+        except:
+            pass # fallback if not available
+            
+        fig, axes = plt.subplots(1, 3, figsize=(20, 7))
         
         metrics = [
-            ('FPS', 'steelblue', 'Processing Speed (FPS)'),
-            ('MPJPE', 'teal', 'Mean Per Joint Position Error'),
-            ('Jitter', 'indianred', 'Frame-to-Frame Jitter')
+            ('FPS', 'steelblue', 'Inference Speed: FPS Comparison\n(Higher is Better)'),
+            ('MPJPE', 'teal', 'Accuracy Evaluation: MPJPE\n(Lower is Better)'),
+            ('Jitter', 'indianred', 'Smoothness Evaluation: Jitter Score\n(Lower is Better)')
         ]
         
+        import matplotlib.colors as mcolors
         for ax, (metric, color, title) in zip(axes, metrics):
             values = summary_df[metric]
             if metric == 'Jitter':
-                values = values * 100  # Scale jitter like original plot
-                ax.set_ylabel('Jitter (x100, normalized)')
+                values = values * 1000  # Scale jitter by 10^3
+                ax.set_ylabel('Mean Acceleration ($10^{-3}$ Normalized Units)', fontsize=11, fontweight='bold')
             elif metric == 'MPJPE':
-                ax.set_ylabel('MPJPE (pixels)')
+                values = values * 1000  # Scale MPJPE by 10^3
+                ax.set_ylabel('MPJPE ($10^{-3}$ Normalized Units)', fontsize=11, fontweight='bold')
             else:
-                ax.set_ylabel('FPS')
+                ax.set_ylabel('Frames Per Second (FPS)', fontsize=11, fontweight='bold')
                 
-            ax.bar(summary_df['Configuration'], values, color=color, alpha=0.9)
-            ax.set_title(title, fontsize=12)
-            ax.tick_params(axis='x', rotation=45, labelsize=10)
-            ax.grid(axis='y', alpha=0.3)
+            base_rgba = mcolors.to_rgba(color)
+            bar_colors = []
+            for cfg in summary_df['Configuration']:
+                if 'pure' in cfg or 'dense' in cfg or 'framediff' in cfg:
+                    bar_colors.append('#6c757d') # Gray for baseline
+                elif 'v8n' in cfg or 'v26n' in cfg:
+                    bar_colors.append('#dc3545') # Red for Hybrid-N
+                else:
+                    bar_colors.append('#007bff') # Blue for Hybrid-M
+                    
+            bars = ax.bar(summary_df['Configuration'], values, color=bar_colors, edgecolor='black', linewidth=1.2, width=0.8)
+            
+            # Add values on top of bars
+            for bar in bars:
+                yval = bar.get_height()
+                label = f"{yval:.2f}"
+                ax.text(bar.get_x() + bar.get_width()/2., yval + (ax.get_ylim()[1]*0.02), label, ha='center', va='bottom', fontsize=11, fontweight='bold')
+                
+            # Increase Y limit slightly to make room for text
+            ax.set_ylim(0, ax.get_ylim()[1] * 1.3)
+
+            ax.set_title(title, fontsize=14, fontweight='bold', pad=10)
+            
+            # Custom labels for Ablation 6
+            labels = []
+            for cfg in summary_df['Configuration']:
+                if cfg == 'pure_v8n': labels.append('YOLOv8n\n(Baseline)')
+                elif cfg == 'hybrid_v8n': labels.append('Hybrid-N\n(Ours)')
+                elif cfg == 'pure_v8m': labels.append('YOLOv8m\n(Baseline)')
+                elif cfg == 'hybrid_v8m': labels.append('Hybrid-M\n(Ours)')
+                elif cfg == 'pure_v26n': labels.append('YOLOv26n\n(Baseline)')
+                elif cfg == 'hybrid_v26n': labels.append('Hybrid-26N\n(Ours)')
+                elif cfg == 'pure_v26m': labels.append('YOLOv26m\n(Baseline)')
+                elif cfg == 'hybrid_v26m': labels.append('Hybrid-26M\n(Ours)')
+                else: labels.append(cfg)
+                
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels, fontsize=10, fontweight='bold', rotation=45, ha='right')
+            ax.grid(axis='y', alpha=0.4, linestyle='--')
             
         plt.tight_layout()
         plt.subplots_adjust(top=0.88)

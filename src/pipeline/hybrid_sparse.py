@@ -22,6 +22,7 @@ class HybridSparseFlowPipeline(BasePipeline):
         
         self.skip_count = 0
         self.motion_score = 0.0
+        self.current_max_skip = 0  # Two-Gear: tracks current gear level
         
         self.is_pure_mode = (max_skip == 0)
     
@@ -35,13 +36,24 @@ class HybridSparseFlowPipeline(BasePipeline):
         
         run_yolo = True
         motion_score = 0.0
+        curr_kpts_small = None
         
         if not self.is_pure_mode and self.prev_gray_small is not None and self.prev_kpts_small is not None:
             motion_score, curr_kpts_small = self.flow_tracker.compute(
                 self.prev_gray_small, curr_gray_small, self.prev_kpts_small
             )
             
-            if motion_score < self.motion_thr and self.skip_count < self.max_skip:
+            # --- Two-Gear Adaptive Decision (Algorithm 2 in thesis) ---
+            # Adjust threshold dynamically based on flow_scale
+            dynamic_threshold = self.motion_thr * (self.flow_scale / 0.25)
+            
+            if motion_score < dynamic_threshold:
+                self.current_max_skip = self.max_skip  # Gear 1 (Slow): skip up to max_skip
+            else:
+                self.current_max_skip = 2              # Gear 2 (Fast): skip up to 2
+            
+            # Skip YOLO if tracking is valid AND within current gear's limit
+            if motion_score < 999.0 and self.skip_count < self.current_max_skip:
                 run_yolo = False
                 self.prev_kpts_small = curr_kpts_small
             else:
@@ -72,16 +84,11 @@ class HybridSparseFlowPipeline(BasePipeline):
                 self.current_kpts = self.prev_kpts_px.copy()
         else:
             self.skip_count += 1
-            if curr_kpts_small is not None:
-                self.prev_kpts_small = curr_kpts_small
-                tracked_px = (curr_kpts_small.reshape(-1, 2) / self.flow_scale).astype(np.float32)
-                if tracked_px.shape[0] == 17:
-                    self.prev_kpts_px = tracked_px
-                    self.current_kpts = tracked_px.copy()
-                else:
-                    self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
-            else:
-                self.current_kpts = self.prev_kpts_px.copy() if self.prev_kpts_px is not None else np.full((17, 2), np.nan, np.float32)
+            # Output NaN for skipped frames -> linearly interpolated in post-processing
+            self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)
+            self.current_kpts = np.full((17, 2), np.nan, np.float32)
+            # prev_kpts_small already updated in decision block above,
+            # keeping the optical flow tracking chain alive for next frame
         
         if self.prev_kpts_px is None:
             self.prev_kpts_px = np.full((17, 2), np.nan, np.float32)

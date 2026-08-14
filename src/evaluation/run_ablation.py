@@ -19,9 +19,9 @@ def main():
     # Ablation 1: Motion Score Method
     abl1_dir = base_out_dir / 'abl1_motion_method'
     abl1_configs = [
-        {'pipeline': 'sparse', 'motion_thr': 3.0, 'prefix': 'sparse_v8n_'},
+        {'pipeline': 'sparse', 'motion_thr': 5.0, 'prefix': 'sparse_v8n_'},
         {'pipeline': 'dense', 'motion_thr': 0.9, 'prefix': 'dense_v8n_'},
-        {'pipeline': 'framediff', 'motion_thr': 3.0, 'prefix': 'framediff_v8n_'}
+        {'pipeline': 'framediff', 'motion_thr': 5.0, 'prefix': 'framediff_v8n_'}
     ]
     for cfg in abl1_configs:
         cfg.update({'model': 'yolov8n-pose.pt', 'max_skip': 6, 'flow_scale': 0.25, 'out_dir': abl1_dir, 'ablation': '1'})
@@ -51,7 +51,7 @@ def main():
         {'max_skip': 15, 'prefix': 'skip15_v8n_'}
     ]
     for cfg in abl3_configs:
-        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 3.0, 'flow_scale': 0.25, 'out_dir': abl3_dir, 'ablation': '3'})
+        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 5.0, 'flow_scale': 0.25, 'out_dir': abl3_dir, 'ablation': '3'})
         experiments.append(cfg)
 
     # Ablation 4: Temporal Refinement
@@ -61,7 +61,7 @@ def main():
         {'no_interp': True, 'prefix': 'no_interp_v8n_'}
     ]
     for cfg in abl4_configs:
-        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 3.0, 'max_skip': 6, 'flow_scale': 0.25, 'out_dir': abl4_dir, 'ablation': '4'})
+        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 5.0, 'max_skip': 6, 'flow_scale': 0.25, 'out_dir': abl4_dir, 'ablation': '4'})
         experiments.append(cfg)
 
     # Ablation 5: Flow Scale
@@ -72,7 +72,7 @@ def main():
         {'flow_scale': 0.25, 'prefix': 'scale0.25_v8n_'}
     ]
     for cfg in abl5_configs:
-        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 3.0, 'max_skip': 6, 'out_dir': abl5_dir, 'ablation': '5'})
+        cfg.update({'pipeline': 'sparse', 'model': 'yolov8n-pose.pt', 'motion_thr': 5.0, 'max_skip': 6, 'out_dir': abl5_dir, 'ablation': '5'})
         experiments.append(cfg)
 
     # Ablation 6: Model Backbone
@@ -88,7 +88,7 @@ def main():
         {'pipeline': 'sparse', 'model': 'yolo26m-pose.pt', 'prefix': 'hybrid_v26m_'}
     ]
     for cfg in abl6_configs:
-        cfg.update({'motion_thr': 3.0, 'max_skip': 6, 'flow_scale': 0.25, 'out_dir': abl6_dir, 'ablation': '6'})
+        cfg.update({'motion_thr': 5.0, 'max_skip': 6, 'flow_scale': 0.25, 'out_dir': abl6_dir, 'ablation': '6'})
         experiments.append(cfg)
 
     runs = []
