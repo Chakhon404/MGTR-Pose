@@ -4,6 +4,3 @@ __pycache__/
 
 # Model Weights
 *.pt
-
-#.mp4 and .npz
-*.mp4
