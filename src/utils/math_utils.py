@@ -32,8 +32,9 @@ def forward_fill_nans(x):
                 x[:, j, d] = s
 
 def interpolate_keypoints_linear(prev_kpts, curr_kpts, ratio):
-    interp_kpts = np.full((17, 2), np.nan)
-    for j in range(17):
+    num_kpts = len(prev_kpts)
+    interp_kpts = np.full((num_kpts, 2), np.nan)
+    for j in range(num_kpts):
         p1 = prev_kpts[j]
         p2 = curr_kpts[j]
         if not np.isnan(p1).any() and not np.isnan(p2).any():
@@ -47,7 +48,8 @@ def interpolate_keypoints_linear(prev_kpts, curr_kpts, ratio):
 
 def normalize_keypoints(kpts, width, height):
     if kpts is None or np.isnan(kpts).all():
-        return np.full((17, 2), np.nan)
+        num_kpts = len(kpts) if kpts is not None else 17
+        return np.full((num_kpts, 2), np.nan)
     kp_norm = kpts.copy()
     kp_norm[:, 0] /= max(width, 1)
     kp_norm[:, 1] /= max(height, 1)
@@ -66,5 +68,5 @@ def compute_motion_score_flow(flow):
     return np.mean(mag)
 
 
-def create_empty_keypoints():
-    return np.full((17, 2), np.nan, dtype=np.float32)
+def create_empty_keypoints(num_kpts=17):
+    return np.full((num_kpts, 2), np.nan, dtype=np.float32)

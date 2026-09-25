@@ -32,7 +32,6 @@ class BasePipeline(ABC):
         pass
     
     def initialize(self):
-        from ..core.yolo_wrapper import YOLOWrapper
         self.cap = cv2.VideoCapture(self.video_path)
         if not self.cap.isOpened():
             raise RuntimeError(f"Cannot open video: {self.video_path}")
@@ -40,7 +39,13 @@ class BasePipeline(ABC):
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.video_fps = self.cap.get(cv2.CAP_PROP_FPS)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.model = YOLOWrapper(self.model_path, self.conf, self.device)
+        
+        if self.model_path and (str(self.model_path).endswith(".task") or "mediapipe" in str(self.model_path).lower()):
+            from ..core.mediapipe_wrapper import MediaPipePoseWrapper
+            self.model = MediaPipePoseWrapper(self.model_path)
+        else:
+            from ..core.yolo_wrapper import YOLOWrapper
+            self.model = YOLOWrapper(self.model_path, self.conf, self.device)
     
     def run(self):
         self.initialize()
@@ -73,7 +78,9 @@ class BasePipeline(ABC):
         self.processing_fps = len(self.keypoints_all) / self.elapsed_time if self.elapsed_time > 0 else 0
     
     def get_results(self):
-        K = np.stack(self.keypoints_all, axis=0).reshape(-1, 17, 2).astype("float32")
+        K_flat = np.stack(self.keypoints_all, axis=0)
+        num_kpts = K_flat.shape[1] // 2
+        K = K_flat.reshape(-1, num_kpts, 2).astype("float32")
         if self.no_interp:
             forward_fill_nans(K)
         else:
@@ -93,10 +100,11 @@ class BasePipeline(ABC):
         dirname = os.path.dirname(output_path)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
+        K = results["keypoints"]
         np.savez_compressed(
             output_path,
             imgname=np.array(results["frame_names"]),
-            keypoints_2d=results["keypoints"].reshape(len(results["keypoints"]), 34),
+            keypoints_2d=K.reshape(len(K), -1),
             video_fps=results["video_fps"],
             processing_fps=results["processing_fps"],
             elapsed_time=results["elapsed_time"],

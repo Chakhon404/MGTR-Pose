@@ -21,8 +21,11 @@ def load_keypoints(npz_path):
     else:
         raise KeyError(f"Unknown keys in NPZ. Found: {list(arr.keys())}")
     
-    if raw_data.ndim == 2 and raw_data.shape[1] == 34:
-        kpts = raw_data.reshape(-1, 17, 2)
+    if raw_data.ndim == 2:
+        num_kpts = raw_data.shape[1] // 2
+        kpts = raw_data.reshape(-1, num_kpts, 2)
+    elif raw_data.ndim == 3:
+        kpts = raw_data
     else:
         kpts = raw_data
     
